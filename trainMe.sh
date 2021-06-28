@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=2 WORLD_SIZE=1 python3.6 train.py --data ~/drop_inlet_detection/YOLO_V4/data/dropInlet.data -pt --weights weights/best.pt  --cfg cfg/yolov4/yolov4-dropInlet.cfg --batch 8 --img-size 608

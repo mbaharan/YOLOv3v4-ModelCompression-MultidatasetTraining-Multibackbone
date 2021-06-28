@@ -29,10 +29,10 @@ hyp = {'giou': 3.54,  # giou loss gain
        'obj': 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
        'obj_pw': 1.0,  # obj BCELoss positive_weight
        'iou_t': 0.20,  # iou training threshold
-       'lr0': 0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
+       'lr0': 0.001,  # initial learning rate (SGD=5E-3, Adam=5E-4)
        'lrf': 0.0005,  # final learning rate (with cos scheduler)
        'momentum': 0.937,  # SGD momentum
-       'weight_decay': 0.0005,  # optimizer weight decay
+       'weight_decay': 0.005,  # optimizer weight decay
        'fl_gamma': 0.0,  # focal loss gamma (efficientDet default is gamma=1.5)
        'hsv_h': 0.0138,  # image HSV-Hue augmentation (fraction)
        'hsv_s': 0.678,  # image HSV-Saturation augmentation (fraction)
@@ -103,7 +103,7 @@ def train(hyp):
         opt.batch_size = opt.batch_size // opt.world_size
     else:
         dist.init_process_group(backend='nccl',  # 'distributed backend'
-                                init_method='tcp://127.0.0.1:9999',  # distributed training init method
+                                init_method='tcp://127.0.0.1:9996',  # distributed training init method
                                 world_size=1,  # number of nodes for distributed training
                                 rank=0)  # distributed training node rank
 
@@ -149,11 +149,12 @@ def train(hyp):
             try:
                 chkpt['model'] = {k: v for k, v in chkpt['model'].items() if model.state_dict()[k].numel() == v.numel()}
                 model.load_state_dict(chkpt['model'], strict=False)
+                print('Model is loaded.')
             except KeyError as e:
                 s = "%s is not compatible with %s. Specify --weights '' or specify a --cfg compatible with %s. " \
                     "See https://github.com/ultralytics/yolov3/issues/657" % (opt.weights, opt.cfg, opt.weights)
                 raise KeyError(s) from e
-
+            '''
             # load optimizer
             if chkpt['optimizer'] is not None:
                 optimizer.load_state_dict(chkpt['optimizer'])
@@ -166,7 +167,7 @@ def train(hyp):
             if chkpt.get('epoch') is not None:
                 start_epoch = chkpt['epoch'] + 1
             del chkpt
-
+            '''
         elif len(weights) > 0:  # darknet format
             # possible weights are '*.weights', 'yolov3-tiny.conv.15',  'darknet53.conv.74' etc.
             load_darknet_weights(model, weights, pt=opt.pt, FPGA=opt.FPGA)

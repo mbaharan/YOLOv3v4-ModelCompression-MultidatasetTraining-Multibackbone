@@ -1,0 +1,4 @@
+classes= 2
+train=/mnt/AI_2TB/drop_inlet/new_dataset/merged_new/train/images/train/train.txt
+valid=/mnt/AI_2TB/drop_inlet/new_dataset/merged_new/val/images/val/val.txt
+names=data/dropInlet.name

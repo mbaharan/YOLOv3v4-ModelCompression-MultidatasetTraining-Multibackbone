@@ -21,7 +21,8 @@ from . import torch_utils  # , google_utils
 
 # Set printoptions
 torch.set_printoptions(linewidth=320, precision=5, profile='long')
-np.set_printoptions(linewidth=320, formatter={'float_kind': '{:11.5g}'.format})  # format short g, %precision=5
+# format short g, %precision=5
+np.set_printoptions(linewidth=320, formatter={'float_kind': '{:11.5g}'.format})
 matplotlib.rc('font', **{'size': 11})
 
 # Prevent OpenCV from multithreading (to use PyTorch DataLoader)
@@ -38,7 +39,8 @@ def load_classes(path):
     # Loads *.names file at 'path'
     with open(path, 'r') as f:
         names = f.read().split('\n')
-    return list(filter(None, names))  # filter removes empty strings (such as last line)
+    # filter removes empty strings (such as last line)
+    return list(filter(None, names))
 
 
 def labels_to_class_weights(labels, nc=80):
@@ -63,10 +65,21 @@ def labels_to_class_weights(labels, nc=80):
 def labels_to_image_weights(labels, nc=80, class_weights=np.ones(80)):
     # Produces image weights based on class mAPs
     n = len(labels)
-    class_counts = np.array([np.bincount(labels[i][:, 0].astype(np.int), minlength=nc) for i in range(n)])
+    class_counts = np.array(
+        [np.bincount(labels[i][:, 0].astype(np.int), minlength=nc) for i in range(n)])
     image_weights = (class_weights.reshape(1, nc) * class_counts).sum(1)
     # index = random.choices(range(n), weights=image_weights, k=1)  # weight image sample
     return image_weights
+
+
+def drop_inlets_class_weights():
+    n = [442, 203]
+    weights = 1 / torch.Tensor(n)
+    weights /= weights.sum()
+    # with open('data/coco.names', 'r') as f:
+    #     for k, v in zip(f.read().splitlines(), n):
+    #         print('%20s: %g' % (k, v))
+    return weights
 
 
 def coco_class_weights():  # frequency of each class in coco train2014
@@ -96,8 +109,9 @@ def coco80_to_coco91_class():  # converts 80-index (val2014) to 91-index (paper)
 
 
 def xyxy2xywh(x):
-    # Transform box coordinates from [x1, y1, x2, y2] (where xy1=top-left, xy2=bottom-right) to [x, y, w, h] 
-    y = torch.zeros_like(x) if isinstance(x, torch.Tensor) else np.zeros_like(x)
+    # Transform box coordinates from [x1, y1, x2, y2] (where xy1=top-left, xy2=bottom-right) to [x, y, w, h]
+    y = torch.zeros_like(x) if isinstance(
+        x, torch.Tensor) else np.zeros_like(x)
     y[:, 0] = (x[:, 0] + x[:, 2]) / 2  # x center
     y[:, 1] = (x[:, 1] + x[:, 3]) / 2  # y center
     y[:, 2] = x[:, 2] - x[:, 0]  # width
@@ -107,7 +121,8 @@ def xyxy2xywh(x):
 
 def xywh2xyxy(x):
     # Transform box coordinates from [x, y, w, h] to [x1, y1, x2, y2] (where xy1=top-left, xy2=bottom-right)
-    y = torch.zeros_like(x) if isinstance(x, torch.Tensor) else np.zeros_like(x)
+    y = torch.zeros_like(x) if isinstance(
+        x, torch.Tensor) else np.zeros_like(x)
     y[:, 0] = x[:, 0] - x[:, 2] / 2  # top left x
     y[:, 1] = x[:, 1] - x[:, 3] / 2  # top left y
     y[:, 2] = x[:, 0] + x[:, 2] / 2  # bottom right x
@@ -139,7 +154,8 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
     # Rescale coords (xyxy) from img1_shape to img0_shape
     if ratio_pad is None:  # calculate from img0_shape
         gain = max(img1_shape) / max(img0_shape)  # gain  = old / new
-        pad = (img1_shape[1] - img0_shape[1] * gain) / 2, (img1_shape[0] - img0_shape[0] * gain) / 2  # wh padding
+        pad = (img1_shape[1] - img0_shape[1] * gain) / \
+            2, (img1_shape[0] - img0_shape[0] * gain) / 2  # wh padding
     else:
         gain = ratio_pad[0][0]
         pad = ratio_pad[1]
@@ -180,7 +196,8 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
 
     # Create Precision-Recall curve and compute AP for each class
     pr_score = 0.1  # score to evaluate P and R https://github.com/ultralytics/yolov3/issues/898
-    s = [len(unique_classes), tp.shape[1]]  # number class, number iou thresholds (i.e. 10 for mAP0.5...0.95)
+    # number class, number iou thresholds (i.e. 10 for mAP0.5...0.95)
+    s = [len(unique_classes), tp.shape[1]]
     ap, p, r = np.zeros(s), np.zeros(s), np.zeros(s)
     for ci, c in enumerate(unique_classes):
         i = pred_cls == c
@@ -196,11 +213,13 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
 
             # Recall
             recall = tpc / (n_gt + 1e-16)  # recall curve
-            r[ci] = np.interp(-pr_score, -conf[i], recall[:, 0])  # r at pr_score, negative x, xp because xp decreases
+            # r at pr_score, negative x, xp because xp decreases
+            r[ci] = np.interp(-pr_score, -conf[i], recall[:, 0])
 
             # Precision
             precision = tpc / (tpc + fpc)  # precision curve
-            p[ci] = np.interp(-pr_score, -conf[i], precision[:, 0])  # p at pr_score
+            p[ci] = np.interp(-pr_score, -conf[i],
+                              precision[:, 0])  # p at pr_score
 
             # AP from recall-precision curve
             for j in range(tp.shape[1]):
@@ -245,7 +264,8 @@ def compute_ap(recall, precision):
         x = np.linspace(0, 1, 101)  # 101-point interp (COCO)
         ap = np.trapz(np.interp(x, mrec, mpre), x)  # integrate
     else:  # 'continuous'
-        i = np.where(mrec[1:] != mrec[:-1])[0]  # points where x axis (recall) changes
+        # points where x axis (recall) changes
+        i = np.where(mrec[1:] != mrec[:-1])[0]
         ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])  # area under curve
 
     return ap
@@ -276,7 +296,8 @@ def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
 
     iou = inter / union  # iou
     if GIoU or DIoU or CIoU:
-        cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1, b2_x1)  # convex (smallest enclosing box) width
+        # convex (smallest enclosing box) width
+        cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1, b2_x1)
         ch = torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)  # convex height
         if GIoU:  # Generalized IoU https://arxiv.org/pdf/1902.09630.pdf
             c_area = cw * ch + 1e-16  # convex area
@@ -285,11 +306,13 @@ def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
             # convex diagonal squared
             c2 = cw ** 2 + ch ** 2 + 1e-16
             # centerpoint distance squared
-            rho2 = ((b2_x1 + b2_x2) - (b1_x1 + b1_x2)) ** 2 / 4 + ((b2_y1 + b2_y2) - (b1_y1 + b1_y2)) ** 2 / 4
+            rho2 = ((b2_x1 + b2_x2) - (b1_x1 + b1_x2)) ** 2 / 4 + \
+                ((b2_y1 + b2_y2) - (b1_y1 + b1_y2)) ** 2 / 4
             if DIoU:
                 return iou - rho2 / c2  # DIoU
             elif CIoU:  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
-                v = (4 / math.pi ** 2) * torch.pow(torch.atan(w2 / h2) - torch.atan(w1 / h1), 2)
+                v = (4 / math.pi ** 2) * \
+                    torch.pow(torch.atan(w2 / h2) - torch.atan(w1 / h1), 2)
                 with torch.no_grad():
                     alpha = v / (1 - iou + v)
                 return iou - (rho2 / c2 + v * alpha)  # CIoU
@@ -318,8 +341,10 @@ def box_iou(box1, box2):
     area2 = box_area(box2.t())
 
     # inter(N,M) = (rb(N,M,2) - lt(N,M,2)).clamp(0).prod(2)
-    inter = (torch.min(box1[:, None, 2:], box2[:, 2:]) - torch.max(box1[:, None, :2], box2[:, :2])).clamp(0).prod(2)
-    return inter / (area1[:, None] + area2 - inter)  # iou = inter / (area1 + area2 - inter)
+    inter = (torch.min(box1[:, None, 2:], box2[:, 2:]) -
+             torch.max(box1[:, None, :2], box2[:, :2])).clamp(0).prod(2)
+    # iou = inter / (area1 + area2 - inter)
+    return inter / (area1[:, None] + area2 - inter)
 
 
 def wh_iou(wh1, wh2):
@@ -327,7 +352,8 @@ def wh_iou(wh1, wh2):
     wh1 = wh1[:, None]  # [N,1,2]
     wh2 = wh2[None]  # [1,M,2]
     inter = torch.min(wh1, wh2).prod(2)  # [N,M]
-    return inter / (wh1.prod(2) + wh2.prod(2) - inter)  # iou = inter / (area1 + area2 - inter)
+    # iou = inter / (area1 + area2 - inter)
+    return inter / (wh1.prod(2) + wh2.prod(2) - inter)
 
 
 class FocalLoss(nn.Module):
@@ -399,12 +425,16 @@ def compute_loss(p, targets, model):  # predictions, targets, model
             # ps[:, 2:4] = torch.sigmoid(ps[:, 2:4])  # wh power loss (uncomment)
 
             # GIoU
-            pxy = torch.sigmoid(ps[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
+            # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
+            pxy = torch.sigmoid(ps[:, 0:2])
             pwh = torch.exp(ps[:, 2:4]).clamp(max=1E3) * anchor_vec[i]
             pbox = torch.cat((pxy, pwh), 1)  # predicted box
-            giou = bbox_iou(pbox.t(), tbox[i], x1y1x2y2=False, GIoU=True)  # giou computation
-            lbox += (1.0 - giou).sum() if red == 'sum' else (1.0 - giou).mean()  # giou loss
-            tobj[b, a, gj, gi] = (1.0 - model.gr) + model.gr * giou.detach().clamp(0).type(tobj.dtype)  # giou ratio
+            # giou computation
+            giou = bbox_iou(pbox.t(), tbox[i], x1y1x2y2=False, GIoU=True)
+            lbox += (1.0 - giou).sum() if red == 'sum' else (1.0 -
+                                                             giou).mean()  # giou loss
+            tobj[b, a, gj, gi] = (1.0 - model.gr) + model.gr * \
+                giou.detach().clamp(0).type(tobj.dtype)  # giou ratio
 
             if model.nc > 1:  # cls loss (only if multiple classes)
                 t = torch.full_like(ps[:, 5:], cn)  # targets
@@ -459,14 +489,19 @@ def compute_lost_KD2(model, targets, output_s, output_t):
 
         nb = len(b)
         if nb:  # number of targets
-            pss = ps[b, a, gj, gi]  # prediction subset corresponding to targets
+            # prediction subset corresponding to targets
+            pss = ps[b, a, gj, gi]
             pts = pt[b, a, gj, gi]
 
-            psxy = torch.sigmoid(pss[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
-            psbox = torch.cat((psxy, torch.exp(pss[:, 2:4]) * anchor_vec[i]), 1).view(-1, 4)  # predicted box
+            # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
+            psxy = torch.sigmoid(pss[:, 0:2])
+            psbox = torch.cat(
+                (psxy, torch.exp(pss[:, 2:4]) * anchor_vec[i]), 1).view(-1, 4)  # predicted box
 
-            ptxy = torch.sigmoid(pts[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
-            ptbox = torch.cat((ptxy, torch.exp(pts[:, 2:4]) * anchor_vec[i]), 1).view(-1, 4)  # predicted box
+            # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
+            ptxy = torch.sigmoid(pts[:, 0:2])
+            ptbox = torch.cat(
+                (ptxy, torch.exp(pts[:, 2:4]) * anchor_vec[i]), 1).view(-1, 4)  # predicted box
 
             l2_dis_s = (psbox - tbox[i]).pow(2).sum(1)
             l2_dis_s_m = l2_dis_s + reg_m
@@ -501,14 +536,19 @@ def compute_lost_KD3(model, targets, output_s, output_t):
 
         nb = len(b)
         if nb:  # number of targets
-            pss = ps[b, a, gj, gi]  # prediction subset corresponding to targets
+            # prediction subset corresponding to targets
+            pss = ps[b, a, gj, gi]
             pts = pt[b, a, gj, gi]
 
-            psxy = torch.sigmoid(pss[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
-            psbox = torch.cat((psxy, torch.exp(pss[:, 2:4]) * anchor_vec[i]), 1).view(-1, 4)  # predicted box
+            # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
+            psxy = torch.sigmoid(pss[:, 0:2])
+            psbox = torch.cat(
+                (psxy, torch.exp(pss[:, 2:4]) * anchor_vec[i]), 1).view(-1, 4)  # predicted box
 
-            ptxy = torch.sigmoid(pts[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
-            ptbox = torch.cat((ptxy, torch.exp(pts[:, 2:4]) * anchor_vec[i]), 1).view(-1, 4)  # predicted box
+            # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
+            ptxy = torch.sigmoid(pts[:, 0:2])
+            ptbox = torch.cat(
+                (ptxy, torch.exp(pts[:, 2:4]) * anchor_vec[i]), 1).view(-1, 4)  # predicted box
 
             l2_dis = (psbox - ptbox).pow(2).sum(1)
             lbox += l2_dis.sum()
@@ -534,14 +574,19 @@ def compute_lost_KD4(model, targets, output_s, output_t, feature_s, feature_t, b
 
         nb = len(b)
         if nb:  # number of targets
-            pss = ps[b, a, gj, gi]  # prediction subset corresponding to targets
+            # prediction subset corresponding to targets
+            pss = ps[b, a, gj, gi]
             pts = pt[b, a, gj, gi]
 
-            psxy = torch.sigmoid(pss[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
-            psbox = torch.cat((psxy, torch.exp(pss[:, 2:4]) * anchor_vec[i]), 1).view(-1, 4)  # predicted box
+            # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
+            psxy = torch.sigmoid(pss[:, 0:2])
+            psbox = torch.cat(
+                (psxy, torch.exp(pss[:, 2:4]) * anchor_vec[i]), 1).view(-1, 4)  # predicted box
 
-            ptxy = torch.sigmoid(pts[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
-            ptbox = torch.cat((ptxy, torch.exp(pts[:, 2:4]) * anchor_vec[i]), 1).view(-1, 4)  # predicted box
+            # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
+            ptxy = torch.sigmoid(pts[:, 0:2])
+            ptbox = torch.cat(
+                (ptxy, torch.exp(pts[:, 2:4]) * anchor_vec[i]), 1).view(-1, 4)  # predicted box
 
             l2_dis = (psbox - ptbox).pow(2).sum(1)
             lbox += l2_dis.sum()
@@ -579,7 +624,8 @@ def fine_grained_imitation_feature_mask(feature_s, feature_t, indices, img_size)
     if feature_t.size() != feature_s.size():
         print("feature mismatch!")
         exit()
-    B, Gj, Gi = torch.Tensor(0).long().cuda(), torch.Tensor(0).long().cuda(), torch.Tensor(0).long().cuda()
+    B, Gj, Gi = torch.Tensor(0).long().cuda(), torch.Tensor(
+        0).long().cuda(), torch.Tensor(0).long().cuda()
     feature_size = feature_s.size()[1]
     scale = img_size / feature_size
     for j in range(len(indices)):
@@ -590,9 +636,12 @@ def fine_grained_imitation_feature_mask(feature_s, feature_t, indices, img_size)
         for i in range(gj.size()[0]):
             if 2 ** (5 - j) == scale:
                 break
-            b_temp = (torch.ones(int(2 ** (5 - j) / scale - 1)).long().cuda() * b[i])
-            gj_temp = torch.arange(int(gj[i].item()) + 1, int(gj[i].item() + 2 ** (5 - j) / scale)).cuda()
-            gi_temp = torch.arange(int(gi[i].item()) + 1, int(gi[i].item() + 2 ** (5 - j) / scale)).cuda()
+            b_temp = (torch.ones(
+                int(2 ** (5 - j) / scale - 1)).long().cuda() * b[i])
+            gj_temp = torch.arange(
+                int(gj[i].item()) + 1, int(gj[i].item() + 2 ** (5 - j) / scale)).cuda()
+            gi_temp = torch.arange(
+                int(gi[i].item()) + 1, int(gi[i].item() + 2 ** (5 - j) / scale)).cuda()
             b = torch.cat((b, b_temp))
             gj = torch.cat((gj, gj_temp))
             gi = torch.cat((gi, gi_temp))
@@ -616,14 +665,19 @@ def compute_lost_KD5(model, targets, output_s, output_t, feature_s, feature_t, b
 
         nb = len(b)
         if nb:  # number of targets
-            pss = ps[b, a, gj, gi]  # prediction subset corresponding to targets
+            # prediction subset corresponding to targets
+            pss = ps[b, a, gj, gi]
             pts = pt[b, a, gj, gi]
 
-            psxy = torch.sigmoid(pss[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
-            psbox = torch.cat((psxy, torch.exp(pss[:, 2:4]) * anchor_vec[i]), 1).view(-1, 4)  # predicted box
+            # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
+            psxy = torch.sigmoid(pss[:, 0:2])
+            psbox = torch.cat(
+                (psxy, torch.exp(pss[:, 2:4]) * anchor_vec[i]), 1).view(-1, 4)  # predicted box
 
-            ptxy = torch.sigmoid(pts[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
-            ptbox = torch.cat((ptxy, torch.exp(pts[:, 2:4]) * anchor_vec[i]), 1).view(-1, 4)  # predicted box
+            # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
+            ptxy = torch.sigmoid(pts[:, 0:2])
+            ptbox = torch.cat(
+                (ptxy, torch.exp(pts[:, 2:4]) * anchor_vec[i]), 1).view(-1, 4)  # predicted box
 
             l2_dis = (psbox - ptbox).pow(2).sum(1)
             lbox += l2_dis.sum()
@@ -642,7 +696,8 @@ def compute_lost_KD5(model, targets, output_s, output_t, feature_s, feature_t, b
         feature_t[i] = feature_t[i].abs().sum(1)
         # feature_s[i] = feature_s[i].pow(2).sum(1)
         feature_s[i] = feature_s[i].abs().sum(1)
-        mask = fine_grained_imitation_feature_mask(feature_s[i], feature_t[i], merge, img_size)
+        mask = fine_grained_imitation_feature_mask(
+            feature_s[i], feature_t[i], merge, img_size)
         mask = mask.to(targets.device)
         feature_t[i] = (feature_t[i] * mask).view(batch_size, -1)
         feature_s[i] = (feature_s[i] * mask).view(batch_size, -1)
@@ -703,10 +758,14 @@ def Failure_Case_Loss_FM(masks, imgs, targets):
         target = targets[targets[:, 0] == i]
         # mask_target = torch.zeros((3, mask.shape[1], mask.shape[2])).to(mask.device)
         for object in target:
-            x, y = mask.shape[1] * float(object[2]), mask.shape[2] * float(object[3])
-            w, h = mask.shape[1] * float(object[4]), mask.shape[2] * float(object[5])
-            mask_object = torch.zeros((3, mask.shape[1], mask.shape[2])).to(mask.device)
-            mask_object[:, round(y - h / 2):round(y + h / 2), round(x - w / 2):round(x + w / 2)] = 1
+            x, y = mask.shape[1] * \
+                float(object[2]), mask.shape[2] * float(object[3])
+            w, h = mask.shape[1] * \
+                float(object[4]), mask.shape[2] * float(object[5])
+            mask_object = torch.zeros(
+                (3, mask.shape[1], mask.shape[2])).to(mask.device)
+            mask_object[:, round(y - h / 2):round(y + h / 2),
+                        round(x - w / 2):round(x + w / 2)] = 1
             pbo = torch.sum((mask * mask_object)) / torch.sum(mask_object)
             PBO = PBO + pbo
             # mask_target = mask_target + mask_object
@@ -721,6 +780,7 @@ def Failure_Case_Loss_FM(masks, imgs, targets):
 
     return F_loss + D_loss
 
+
 def build_targets(p, targets, model):
     # targets = [image, class, x, y, w, h]
 
@@ -732,7 +792,8 @@ def build_targets(p, targets, model):
     # m = list(model.modules())[-1]
     # for i in range(m.nl):
     #    anchors = m.anchors[i]
-    multi_gpu = type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
+    multi_gpu = type(model) in (nn.parallel.DataParallel,
+                                nn.parallel.DistributedDataParallel)
     for i, j in enumerate(model.yolo_layers):
         # get number of grid points and anchor vec for this yolo layer
         anchors = model.module.module_list[j].anchor_vec if multi_gpu else model.module_list[j].anchor_vec
@@ -742,7 +803,8 @@ def build_targets(p, targets, model):
         t, a = targets * gain, []
         gwh = t[:, 4:6]
         if nt:
-            iou = wh_iou(anchors, gwh)  # iou(3,n) = wh_iou(anchors(3,2), gwh(n,2))
+            # iou(3,n) = wh_iou(anchors(3,2), gwh(n,2))
+            iou = wh_iou(anchors, gwh)
 
             if use_all_anchors:
                 na = anchors.shape[0]  # number of anchors
@@ -753,7 +815,8 @@ def build_targets(p, targets, model):
 
             # reject anchors below iou_thres (OPTIONAL, increases P, lowers R)
             if reject:
-                j = iou.view(-1) > model.hyp['iou_t']  # iou threshold hyperparameter
+                # iou threshold hyperparameter
+                j = iou.view(-1) > model.hyp['iou_t']
                 t, a = t[j], a[j]
 
         # Indices
@@ -786,7 +849,8 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, multi_label=T
     """
 
     # Box constraints
-    min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
+    # (pixels) minimum and maximum box width and height
+    min_wh, max_wh = 2, 4096
 
     method = 'merge'
     nc = prediction[0].shape[1] - 5  # number of classes
@@ -813,7 +877,8 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, multi_label=T
         # Detections matrix nx6 (xyxy, conf, cls)
         if multi_label:
             i, j = (x[:, 5:] > conf_thres).nonzero(as_tuple=False).t()
-            x = torch.cat((box[i], x[i, j + 5].unsqueeze(1), j.float().unsqueeze(1)), 1)
+            x = torch.cat((box[i], x[i, j + 5].unsqueeze(1),
+                           j.float().unsqueeze(1)), 1)
         else:  # best class only
             conf, j = x[:, 5:].max(1)
             x = torch.cat((box, conf.unsqueeze(1), j.float().unsqueeze(1)), 1)
@@ -837,22 +902,28 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, multi_label=T
 
         # Batched NMS
         c = x[:, 5] * 0 if agnostic else x[:, 5]  # classes
-        boxes, scores = x[:, :4].clone() + c.view(-1, 1) * max_wh, x[:, 4]  # boxes (offset by class), scores
+        boxes, scores = x[:, :4].clone() + c.view(-1, 1) * \
+            max_wh, x[:, 4]  # boxes (offset by class), scores
         if method == 'merge':  # Merge NMS (boxes merged using weighted mean)
             i = torchvision.ops.boxes.nms(boxes, scores, iou_thres)
-            if 1 < n < 3E3:  # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
+            # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
+            if 1 < n < 3E3:
                 try:
                     # weights = (box_iou(boxes, boxes).tril_() > iou_thres) * scores.view(-1, 1)  # box weights
                     # weights /= weights.sum(0)  # normalize
                     # x[:, :4] = torch.mm(weights.T, x[:, :4])
-                    weights = (box_iou(boxes[i], boxes) > iou_thres) * scores[None]  # box weights
-                    x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
+                    # box weights
+                    weights = (box_iou(boxes[i], boxes)
+                               > iou_thres) * scores[None]
+                    x[i, :4] = torch.mm(weights, x[:, :4]).float(
+                    ) / weights.sum(1, keepdim=True)  # merged boxes
                 except:  # possible CUDA error https://github.com/ultralytics/yolov3/issues/1139
                     pass
         elif method == 'vision':
             i = torchvision.ops.boxes.nms(boxes, scores, iou_thres)
         elif method == 'fast':  # FastNMS from https://github.com/dbolya/yolact
-            iou = box_iou(boxes, boxes).triu_(diagonal=1)  # upper triangular iou matrix
+            iou = box_iou(boxes, boxes).triu_(
+                diagonal=1)  # upper triangular iou matrix
             i = iou.max(0)[0] < iou_thres
 
         output[xi] = x[i]
@@ -866,31 +937,37 @@ def get_yolo_layers(model):
 
 def print_model_biases(model):
     # prints the bias neurons preceding each yolo layer
-    print('\nModel Bias Summary: %8s%18s%18s%18s' % ('layer', 'regression', 'objectness', 'classification'))
+    print('\nModel Bias Summary: %8s%18s%18s%18s' %
+          ('layer', 'regression', 'objectness', 'classification'))
     try:
-        multi_gpu = type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
+        multi_gpu = type(model) in (nn.parallel.DataParallel,
+                                    nn.parallel.DistributedDataParallel)
         for l in model.yolo_layers:  # print pretrained biases
             if multi_gpu:
                 na = model.module.module_list[l].na  # number of anchors
-                b = model.module.module_list[l - 1][0].bias.view(na, -1)  # bias 3x85
+                b = model.module.module_list[l -
+                                             1][0].bias.view(na, -1)  # bias 3x85
             else:
                 na = model.module_list[l].na
                 b = model.module_list[l - 1][0].bias.view(na, -1)  # bias 3x85
             print(' ' * 20 + '%8g %18s%18s%18s' % (l, '%5.2f+/-%-5.2f' % (b[:, :4].mean(), b[:, :4].std()),
-                                                   '%5.2f+/-%-5.2f' % (b[:, 4].mean(), b[:, 4].std()),
+                                                   '%5.2f+/-%-5.2f' % (
+                                                       b[:, 4].mean(), b[:, 4].std()),
                                                    '%5.2f+/-%-5.2f' % (b[:, 5:].mean(), b[:, 5:].std())))
     except:
         pass
 
 
-def strip_optimizer(f='weights/last.pt'):  # from utils.utils import *; strip_optimizer()
+# from utils.utils import *; strip_optimizer()
+def strip_optimizer(f='weights/last.pt'):
     # Strip optimizer from *.pt files for lighter files (reduced by 2/3 size)
     x = torch.load(f, map_location=torch.device('cpu'))
     x['optimizer'] = None
     torch.save(x, f)
 
 
-def create_backbone(f='weights/last.pt'):  # from utils.utils import *; create_backbone()
+# from utils.utils import *; create_backbone()
+def create_backbone(f='weights/last.pt'):
     # create a backbone from a *.pt file
     x = torch.load(f, map_location=torch.device('cpu'))
     x['optimizer'] = None
@@ -915,7 +992,8 @@ def coco_class_count(path='../coco/labels/train2014/'):
         print(i, len(files))
 
 
-def coco_only_people(path='../coco/labels/train2017/'):  # from utils.utils import *; coco_only_people()
+# from utils.utils import *; coco_only_people()
+def coco_only_people(path='../coco/labels/train2017/'):
     # Find images with only people
     files = sorted(glob.glob('%s/*.*' % path))
     for i, file in enumerate(files):
@@ -924,14 +1002,16 @@ def coco_only_people(path='../coco/labels/train2017/'):  # from utils.utils impo
             print(labels.shape[0], file)
 
 
-def select_best_evolve(path='evolve*.txt'):  # from utils.utils import *; select_best_evolve()
+# from utils.utils import *; select_best_evolve()
+def select_best_evolve(path='evolve*.txt'):
     # Find best evolved mutation
     for file in sorted(glob.glob(path)):
         x = np.loadtxt(file, dtype=np.float32, ndmin=2)
         print(file, x[fitness(x).argmax()])
 
 
-def crop_images_random(path='../images/', scale=0.50):  # from utils.utils import *; crop_images_random()
+# from utils.utils import *; crop_images_random()
+def crop_images_random(path='../images/', scale=0.50):
     # crops images into random squares up to scale fraction
     # WARNING: overwrites images!
     for file in tqdm(sorted(glob.glob('%s/*.*' % path))):
@@ -963,7 +1043,8 @@ def coco_single_class_labels(path='../coco/labels/train2014/', label_class=43):
     os.makedirs('new/images/')
     for file in tqdm(sorted(glob.glob('%s/*.*' % path))):
         with open(file, 'r') as f:
-            labels = np.array([x.split() for x in f.read().splitlines()], dtype=np.float32)
+            labels = np.array([x.split()
+                               for x in f.read().splitlines()], dtype=np.float32)
         i = labels[:, 0] == label_class
         if any(i):
             img_file = file.replace('labels', 'images').replace('txt', 'jpg')
@@ -973,7 +1054,8 @@ def coco_single_class_labels(path='../coco/labels/train2014/', label_class=43):
             with open('new/labels/' + Path(file).name, 'a') as f:  # write label
                 for l in labels[i]:
                     f.write('%g %.6f %.6f %.6f %.6f\n' % tuple(l))
-            shutil.copyfile(src=img_file, dst='new/images/' + Path(file).name.replace('txt', 'jpg'))  # copy images
+            shutil.copyfile(src=img_file, dst='new/images/' +
+                            Path(file).name.replace('txt', 'jpg'))  # copy images
 
 
 def kmean_anchors(path='./data/coco64.txt', n=9, img_size=(320, 1024), thr=0.20, gen=1000):
@@ -988,12 +1070,15 @@ def kmean_anchors(path='./data/coco64.txt', n=9, img_size=(320, 1024), thr=0.20,
         k = k[np.argsort(k.prod(1))]  # sort small to large
         iou = wh_iou(wh, torch.Tensor(k))
         max_iou = iou.max(1)[0]
-        bpr, aat = (max_iou > thr).float().mean(), (iou > thr).float().mean() * n  # best possible recall, anch > thr
-        print('%.2f iou_thr: %.3f best possible recall, %.2f anchors > thr' % (thr, bpr, aat))
+        bpr, aat = (max_iou > thr).float().mean(), (iou > thr).float(
+        ).mean() * n  # best possible recall, anch > thr
+        print('%.2f iou_thr: %.3f best possible recall, %.2f anchors > thr' %
+              (thr, bpr, aat))
         print('n=%g, img_size=%s, IoU_all=%.3f/%.3f-mean/best, IoU>thr=%.3f-mean: ' %
               (n, img_size, iou.mean(), max_iou.mean(), iou[iou > thr].mean()), end='')
         for i, x in enumerate(k):
-            print('%i,%i' % (round(x[0]), round(x[1])), end=',  ' if i < len(k) - 1 else '\n')  # use in *.cfg
+            print('%i,%i' % (round(x[0]), round(x[1])), end=',  ' if i < len(
+                k) - 1 else '\n')  # use in *.cfg
         return k
 
     def fitness(k):  # mutation fitness
@@ -1004,17 +1089,21 @@ def kmean_anchors(path='./data/coco64.txt', n=9, img_size=(320, 1024), thr=0.20,
     # Get label wh
     wh = []
     dataset = LoadImagesAndLabels(path, augment=True, rect=True)
-    nr = 1 if img_size[0] == img_size[1] else 10  # number augmentation repetitions
+    # number augmentation repetitions
+    nr = 1 if img_size[0] == img_size[1] else 10
     for s, l in zip(dataset.shapes, dataset.labels):
-        wh.append(l[:, 3:5] * (s / s.max()))  # image normalized to letterbox normalized wh
+        # image normalized to letterbox normalized wh
+        wh.append(l[:, 3:5] * (s / s.max()))
     wh = np.concatenate(wh, 0).repeat(nr, axis=0)  # augment 10x
-    wh *= np.random.uniform(img_size[0], img_size[1], size=(wh.shape[0], 1))  # normalized to pixels (multi-scale)
+    # normalized to pixels (multi-scale)
+    wh *= np.random.uniform(img_size[0], img_size[1], size=(wh.shape[0], 1))
     wh = wh[(wh > 2.0).all(1)]  # remove below threshold boxes (< 2 pixels wh)
 
     # Darknet yolov3.cfg anchors
     use_darknet = False
     if use_darknet and n == 9:
-        k = np.array([[10, 13], [16, 30], [33, 23], [30, 61], [62, 45], [59, 119], [116, 90], [156, 198], [373, 326]])
+        k = np.array([[10, 13], [16, 30], [33, 23], [30, 61], [62, 45], [
+                     59, 119], [116, 90], [156, 198], [373, 326]])
     else:
         # Kmeans calculation
         from scipy.cluster.vq import kmeans
@@ -1040,11 +1129,13 @@ def kmean_anchors(path='./data/coco64.txt', n=9, img_size=(320, 1024), thr=0.20,
 
     # Evolve
     npr = np.random
-    f, sh, mp, s = fitness(k), k.shape, 0.9, 0.1  # fitness, generations, mutation prob, sigma
+    # fitness, generations, mutation prob, sigma
+    f, sh, mp, s = fitness(k), k.shape, 0.9, 0.1
     for _ in tqdm(range(gen), desc='Evolving anchors'):
         v = np.ones(sh)
         while (v == 1).all():  # mutate until a change occurs (prevent duplicates)
-            v = ((npr.random(sh) < mp) * npr.random() * npr.randn(*sh) * s + 1).clip(0.3, 3.0)  # 98.6, 61.6
+            v = ((npr.random(sh) < mp) * npr.random() *
+                 npr.randn(*sh) * s + 1).clip(0.3, 3.0)  # 98.6, 61.6
         kg = (k.copy() * v).clip(min=2.0)
         fg = fitness(kg)
         if fg > f:
@@ -1063,12 +1154,15 @@ def print_mutation(hyp, results, bucket=''):
     print('\n%s\n%s\nEvolved fitness: %s\n' % (a, b, c))
 
     if bucket:
-        os.system('gsutil cp gs://%s/evolve.txt .' % bucket)  # download evolve.txt
+        os.system('gsutil cp gs://%s/evolve.txt .' %
+                  bucket)  # download evolve.txt
 
     with open('evolve.txt', 'a') as f:  # append result
         f.write(c + b + '\n')
-    x = np.unique(np.loadtxt('evolve.txt', ndmin=2), axis=0)  # load unique rows
-    np.savetxt('evolve.txt', x[np.argsort(-fitness(x))], '%10.3g')  # save sort by fitness
+    x = np.unique(np.loadtxt('evolve.txt', ndmin=2),
+                  axis=0)  # load unique rows
+    # save sort by fitness
+    np.savetxt('evolve.txt', x[np.argsort(-fitness(x))], '%10.3g')
 
     if bucket:
         os.system('gsutil cp evolve.txt gs://%s' % bucket)  # upload evolve.txt
@@ -1098,20 +1192,25 @@ def apply_classifier(x, model, img, im0):
                 im = cv2.resize(cutout, (224, 224))  # BGR
                 # cv2.imwrite('test%i.jpg' % j, cutout)
 
-                im = im[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
-                im = np.ascontiguousarray(im, dtype=np.float32)  # uint8 to float32
+                # BGR to RGB, to 3x416x416
+                im = im[:, :, ::-1].transpose(2, 0, 1)
+                im = np.ascontiguousarray(
+                    im, dtype=np.float32)  # uint8 to float32
                 im /= 255.0  # 0 - 255 to 0.0 - 1.0
                 ims.append(im)
 
-            pred_cls2 = model(torch.Tensor(ims).to(d.device)).argmax(1)  # classifier prediction
-            x[i] = x[i][pred_cls1 == pred_cls2]  # retain matching class detections
+            pred_cls2 = model(torch.Tensor(ims).to(d.device)
+                              ).argmax(1)  # classifier prediction
+            # retain matching class detections
+            x[i] = x[i][pred_cls1 == pred_cls2]
 
     return x
 
 
 def fitness(x):
     # Returns fitness (for use with results.txt or evolve.txt)
-    w = [0.0, 0.00, 1, 0.00]  # weights for [P, R, mAP, F1]@0.5 or [P, R, mAP@0.5, mAP@0.5:0.95]
+    # weights for [P, R, mAP, F1]@0.5 or [P, R, mAP@0.5, mAP@0.5:0.95]
+    w = [0.0, 0.00, 1, 0.00]
     return (x[:, :4] * w).sum(1)
 
 
@@ -1147,7 +1246,8 @@ def output_to_target(output, width, height):
 # Plotting functions ---------------------------------------------------------------------------------------------------
 def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     # Plots one bounding box on image img
-    tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
+    tl = line_thickness or round(
+        0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
     color = color or [random.randint(0, 255) for _ in range(3)]
     c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
     cv2.rectangle(img, c1, c2, color, thickness=tl)
@@ -1156,7 +1256,8 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
         t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
         c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
         cv2.rectangle(img, c1, c2, color, -1)  # filled
-        cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+        cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3,
+                    [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
 
 
 def plot_wh_methods():  # from utils.utils import *; plot_wh_methods()
@@ -1209,7 +1310,8 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
     # Fix class - colour map
     prop_cycle = plt.rcParams['axes.prop_cycle']
     # https://stackoverflow.com/questions/51350872/python-from-color-name-to-rgb
-    hex2rgb = lambda h: tuple(int(h[1 + i:1 + i + 2], 16) for i in (0, 2, 4))
+    def hex2rgb(h): return tuple(
+        int(h[1 + i:1 + i + 2], 16) for i in (0, 2, 4))
     color_lut = [hex2rgb(h) for h in prop_cycle.by_key()['color']]
 
     for i, img in enumerate(images):
@@ -1229,7 +1331,8 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
             boxes = xywh2xyxy(image_targets[:, 2:6]).T
             classes = image_targets[:, 1].astype('int')
             gt = image_targets.shape[1] == 6  # ground truth if no conf column
-            conf = None if gt else image_targets[:, 6]  # check for confidence presence (gt vs pred)
+            # check for confidence presence (gt vs pred)
+            conf = None if gt else image_targets[:, 6]
 
             boxes[[0, 2]] *= w
             boxes[[0, 2]] += block_x
@@ -1241,17 +1344,20 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
                 cls = names[cls] if names else cls
                 if gt or conf[j] > 0.3:  # 0.3 conf thresh
                     label = '%s' % cls if gt else '%s %.1f' % (cls, conf[j])
-                    plot_one_box(box, mosaic, label=label, color=color, line_thickness=tl)
+                    plot_one_box(box, mosaic, label=label,
+                                 color=color, line_thickness=tl)
 
         # Draw image filename labels
         if paths is not None:
             label = os.path.basename(paths[i])[:40]  # trim to 40 char
-            t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
+            t_size = cv2.getTextSize(
+                label, 0, fontScale=tl / 3, thickness=tf)[0]
             cv2.putText(mosaic, label, (block_x + 5, block_y + t_size[1] + 5), 0, tl / 3, [220, 220, 220], thickness=tf,
                         lineType=cv2.LINE_AA)
 
         # Image border
-        cv2.rectangle(mosaic, (block_x, block_y), (block_x + w, block_y + h), (255, 255, 255), thickness=3)
+        cv2.rectangle(mosaic, (block_x, block_y), (block_x + w,
+                                                   block_y + h), (255, 255, 255), thickness=3)
 
     if fname is not None:
         cv2.imwrite(fname, cv2.cvtColor(mosaic, cv2.COLOR_BGR2RGB))
@@ -1285,14 +1391,16 @@ def plot_targets_txt():  # from utils.utils import *; plot_targets_txt()
     fig, ax = plt.subplots(2, 2, figsize=(8, 8))
     ax = ax.ravel()
     for i in range(4):
-        ax[i].hist(x[i], bins=100, label='%.3g +/- %.3g' % (x[i].mean(), x[i].std()))
+        ax[i].hist(x[i], bins=100, label='%.3g +/- %.3g' %
+                   (x[i].mean(), x[i].std()))
         ax[i].legend()
         ax[i].set_title(s[i])
     fig.tight_layout()
     plt.savefig('targets.jpg', dpi=200)
 
 
-def plot_evolution_results(hyp):  # from utils.utils import *; plot_evolution_results(hyp)
+# from utils.utils import *; plot_evolution_results(hyp)
+def plot_evolution_results(hyp):
     # Plot hyperparameter evolution results in evolve.txt
     x = np.loadtxt('evolve.txt', ndmin=2)
     f = fitness(x)
@@ -1306,18 +1414,22 @@ def plot_evolution_results(hyp):  # from utils.utils import *; plot_evolution_re
         plt.subplot(4, 5, i + 1)
         plt.plot(mu, f.max(), 'o', markersize=10)
         plt.plot(y, f, '.')
-        plt.title('%s = %.3g' % (k, mu), fontdict={'size': 9})  # limit to 40 characters
+        plt.title('%s = %.3g' % (k, mu), fontdict={
+                  'size': 9})  # limit to 40 characters
         print('%15s: %.3g' % (k, mu))
     fig.tight_layout()
     plt.savefig('evolve.png', dpi=200)
 
 
-def plot_results_overlay(start=0, stop=0):  # from utils.utils import *; plot_results_overlay()
+# from utils.utils import *; plot_results_overlay()
+def plot_results_overlay(start=0, stop=0):
     # Plot training results files 'results*.txt', overlaying train and val losses
-    s = ['train', 'train', 'train', 'Precision', 'mAP@0.5', 'val', 'val', 'val', 'Recall', 'F1']  # legends
+    s = ['train', 'train', 'train', 'Precision', 'mAP@0.5',
+         'val', 'val', 'val', 'Recall', 'F1']  # legends
     t = ['GIoU', 'Objectness', 'Classification', 'P-R', 'mAP-F1']  # titles
     for f in sorted(glob.glob('results*.txt') + glob.glob('../../Downloads/results*.txt')):
-        results = np.loadtxt(f, usecols=[2, 3, 4, 8, 9, 12, 13, 14, 10, 11], ndmin=2).T
+        results = np.loadtxt(
+            f, usecols=[2, 3, 4, 8, 9, 12, 13, 14, 10, 11], ndmin=2).T
         n = results.shape[1]  # number of rows
         x = range(start, min(stop, n) if stop else n)
         fig, ax = plt.subplots(1, 5, figsize=(14, 3.5))
@@ -1335,7 +1447,8 @@ def plot_results_overlay(start=0, stop=0):  # from utils.utils import *; plot_re
         fig.savefig(f.replace('.txt', '.png'), dpi=200)
 
 
-def plot_results(start=0, stop=0, bucket='', id=()):  # from utils.utils import *; plot_results()
+# from utils.utils import *; plot_results()
+def plot_results(start=0, stop=0, bucket='', id=()):
     # Plot training 'results*.txt' as seen in https://github.com/ultralytics/yolov3#training
     fig, ax = plt.subplots(2, 5, figsize=(12, 6))
     ax = ax.ravel()
@@ -1343,12 +1456,15 @@ def plot_results(start=0, stop=0, bucket='', id=()):  # from utils.utils import 
          'val GIoU', 'val Objectness', 'val Classification', 'mAP@0.5', 'F1']
     if bucket:
         os.system('rm -rf storage.googleapis.com')
-        files = ['https://storage.googleapis.com/%s/results%g.txt' % (bucket, x) for x in id]
+        files = ['https://storage.googleapis.com/%s/results%g.txt' %
+                 (bucket, x) for x in id]
     else:
-        files = glob.glob('results*.txt') + glob.glob('../../Downloads/results*.txt')
+        files = glob.glob('results*.txt') + \
+            glob.glob('../../Downloads/results*.txt')
     for f in sorted(files):
         try:
-            results = np.loadtxt(f, usecols=[2, 3, 4, 8, 9, 12, 13, 14, 10, 11], ndmin=2).T
+            results = np.loadtxt(
+                f, usecols=[2, 3, 4, 8, 9, 12, 13, 14, 10, 11], ndmin=2).T
             n = results.shape[1]  # number of rows
             x = range(start, min(stop, n) if stop else n)
             for i in range(10):
@@ -1356,7 +1472,8 @@ def plot_results(start=0, stop=0, bucket='', id=()):  # from utils.utils import 
                 if i in [0, 1, 2, 5, 6, 7]:
                     y[y == 0] = np.nan  # dont show zero loss values
                     # y /= y[0]  # normalize
-                ax[i].plot(x, y, marker='.', label=Path(f).stem, linewidth=2, markersize=8)
+                ax[i].plot(x, y, marker='.', label=Path(
+                    f).stem, linewidth=2, markersize=8)
                 ax[i].set_title(s[i])
                 if i in [5, 6, 7]:  # share train and val loss y axes
                     ax[i].get_shared_y_axes().join(ax[i], ax[i - 5])

@@ -26,15 +26,15 @@ def convert():
     # Eval mode
     model.to(device).eval()
 
-    save_weights(model, path='weights/best.weights')
+    save_weights(model, path='./YOLO_V4/weights/best.weights')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', type=str, default='cfg/yolov3.cfg', help='cfg file path')
-    parser.add_argument('--weights', type=str, default='weights/yolov3.weights', help='path to weights file')
+    parser.add_argument('--cfg', type=str, default='./YOLO_V4/cfg/yolov4/yolov4-dropInlet.cfg', help='cfg file path')
+    parser.add_argument('--weights', type=str, default='./YOLO_V4/weights/best.pt', help='path to weights file')
     parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
-    parser.add_argument('--img_size', type=int, default=416, help='inference size (pixels)')
+    parser.add_argument('--img_size', type=int, default=608, help='inference size (pixels)')
     parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1) or cpu')
     opt = parser.parse_args()
     print(opt)
